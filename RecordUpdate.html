@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Transaction Records</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        input, button, select { margin: 5px; padding: 5px; }
+        table { border-collapse: collapse; width: 100%; margin-top: 20px; }
+        th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
+        th { background-color: #f2f2f2; }
+        .highlight { background-color: #e6ffe6; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <h2>Transaction Records Search</h2>
+
+    <form id="searchForm">
+        <input type="text" id="customerId" placeholder="Customer ID">
+        <input type="text" id="accountNumber" placeholder="Account Number">
+        <input type="text" id="description" placeholder="Description">
+        <button type="submit">Search</button>
+    </form>
+
+    <h3>Upload Transaction File</h3>
+    <form id="uploadForm" enctype="multipart/form-data">
+        <input type="file" id="file" name="file">
+        <button type="submit">Upload</button>
+    </form>
+
+    <h3>Update Transaction Record</h3>
+    <form id="updateForm">
+        <input type="text" id="updateId" placeholder="Record ID" required>
+        <input type="text" id="updateDescription" placeholder="New Description">
+        <input type="number" id="updateAmount" placeholder="New Amount" step="0.01">
+        <input type="number" id="updateVersion" placeholder="Version" value="0" required>
+        <button type="submit">Update</button>
+    </form>
+
+    <table id="resultsTable">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Account Number</th>
+                <th>Amount</th>
+                <th>Description</th>
+                <th>Transaction Date</th>
+                <th>Customer ID</th>
+                <th>Version</th>
+            </tr>
+        </thead>
+        <tbody></tbody>
+    </table>
+
+    <script>
+        const BASE_URL = "http://localhost:8080";
+
+        document.getElementById('searchForm').addEventListener('submit', async function(event) {
+            event.preventDefault();
+            const customerId = document.getElementById('customerId').value;
+            const accountNumber = document.getElementById('accountNumber').value;
+            const description = document.getElementById('description').value;
+
+            const params = new URLSearchParams();
+            if (customerId) params.append('customerId', customerId);
+            if (accountNumber) params.append('accountNumber', accountNumber);
+            if (description) params.append('description', description);
+            params.append('page', 0);
+            params.append('size', 20);
+
+            const response = await fetch(`${BASE_URL}/api/records/search?${params.toString()}`);
+            const data = await response.json();
+
+            const tbody = document.querySelector('#resultsTable tbody');
+            tbody.innerHTML = '';
+
+            data.content.forEach(record => {
+                const row = document.createElement('tr');
+                row.classList.add('highlight');
+                row.innerHTML = `
+                    <td>${record.id}</td>
+                    <td>${record.accountNumber}</td>
+                    <td>${record.trxAmount}</td>
+                    <td>${record.description}</td>
+                    <td>${record.trxDate}</td>
+                    <td>${record.customerId}</td>
+                    <td>${record.version ?? 0}</td>
+                `;
+                row.addEventListener('click', () => populateUpdateForm(record));
+                tbody.appendChild(row);
+            });
+        });
+
+        function populateUpdateForm(record) {
+            document.getElementById('updateId').value = record.id;
+            document.getElementById('updateDescription').value = record.description;
+            document.getElementById('updateAmount').value = record.trxAmount;
+            document.getElementById('updateVersion').value = record.version ?? 0;
+        }
+
+        document.getElementById('uploadForm').addEventListener('submit', async function(event) {
+            event.preventDefault();
+            const formData = new FormData();
+            const fileInput = document.getElementById('file');
+
+            if (!fileInput.files.length) {
+                alert("Please select a file to upload.");
+                return;
+            }
+
+            formData.append('file', fileInput.files[0]);
+
+            try {
+                const response = await fetch(`${BASE_URL}/api/batch/upload`, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (response.ok) {
+                    alert("Upload successful!");
+                } else {
+                    alert("Upload failed.");
+                }
+            } catch (err) {
+                console.error(err);
+                alert("Error uploading file.");
+            }
+        });
+
+        document.getElementById('updateForm').addEventListener('submit', async function(event) {
+            event.preventDefault();
+            const id = document.getElementById('updateId').value;
+            const description = document.getElementById('updateDescription').value;
+            const trxAmount = document.getElementById('updateAmount').value;
+            const version = document.getElementById('updateVersion').value;
+
+            const payload = {
+                id: parseInt(id),
+                version: parseInt(version),
+                description: description || null,
+                trxAmount: trxAmount ? parseFloat(trxAmount) : null
+            };
+
+            try {
+                const response = await fetch(`${BASE_URL}/api/records/updateRecord`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    alert("Update successful: " + JSON.stringify(data));
+                } else if (response.status === 409) {
+                    alert("Update failed due to version conflict.");
+                } else {
+                    alert("Update failed with status " + response.status);
+                }
+            } catch (error) {
+                console.error("Error during update:", error);
+                alert("An error occurred during update.");
+            }
+        });
+    </script>
+</body>
+</html>

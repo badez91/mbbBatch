@@ -90,6 +90,22 @@ This project implements a Spring Boot application that supports:
 
 ---
 
+## How To Run 
+
+### 1. Setup Environment
+- **DATABASE**
+- Create Database name **mbbBatch**
+- Execute query in **src/main/resources/schema.sql**
+
+- **Run Spring Boot**
+- Run this command **mvn spring-boot:run**
+
+- **Open UI Page on Browser**
+- Open **RecordUpdate.html**
+
+- **Enjoy**
+
+---
 ## License
 
 MIT
